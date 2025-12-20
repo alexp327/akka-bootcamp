@@ -19,4 +19,25 @@ myActor.Tell("Hello, World!");
 string whatsUp = await myActor.Ask<string>("What's up?");
 Console.WriteLine(whatsUp);
 
+// ---------------- Counter And Parser Actors Initialization ------------------
+var counterActor = myActorSystem.ActorOf(Props.Create<CounterActor>(), "CounterActor");
+var parserActor = myActorSystem.ActorOf(Props.Create(() => new ParserActor(counterActor)), "ParserActor");
+
+Task<IDictionary<string, int>> completionPromise = counterActor.Ask<IDictionary<string, int>>(@ref => new CounterQueries.FetchCounts(@ref), null, CancellationToken.None);
+
+parserActor.Tell(new DocumentCommands.ProcessDocument(
+    """
+        This is a test of the Akka.NET Word Counter.
+        I would go
+    """
+));
+
+IDictionary<string, int> counts = await completionPromise;
+foreach (var kvp in counts)
+{
+    // going to use string interpolation here because we don't care about performance
+    myActorSystem.Log.Info($"{kvp.Key}: {kvp.Value} instances");
+}
+
+
 await myActorSystem.Terminate();
